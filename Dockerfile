@@ -1,7 +1,7 @@
 FROM alpine:latest
 
 WORKDIR /dashboard
-
+COPY entrypoint.sh ./
 # 安装必要的软件包 - Alpine使用apk包管理器
 RUN apk update && \
     apk add --no-cache \
