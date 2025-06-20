@@ -22,8 +22,6 @@ RUN apk update && \
     git config --global pack.threads 1 && \
     git config --global pack.windowMemory 50m && \
     rm -rf /var/cache/apk/* && \
-    echo "#!/usr/bin/env bash\n\n\
-bash <(wget -qO- https://raw.githubusercontent.com/makewemm/nezv1/main/init.sh)" > entrypoint.sh && \
     chmod +x entrypoint.sh
 
 ENTRYPOINT ["/dashboard/entrypoint.sh"]
