@@ -175,7 +175,7 @@ fi
   rm -rf $WORK_DIR/nezha-agent.zip /tmp/dist /tmp/dashboard.zip
   fi
   
-  [ -n "$API_TOKEN" ] && wget -O $WORK_DIR/nezfz ${GH_PROXY}https://github.com/makewemm/nezv1/releases/download/nezfuz/nezfz-linux-amd64
+  [ -n "$API_TOKEN" ] && wget -O $WORK_DIR/nezfz ${GH_PROXY}https://github.com/dsadsadsss/Docker-for-Nezha-Argo-server-v1.x/releases/download/nezfuz/nezfz-linux-amd64
 
   # 根据参数生成哪吒服务端配置文件
   [ ! -d data ] && mkdir data
