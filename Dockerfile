@@ -6,6 +6,7 @@ COPY entrypoint.sh ./
 RUN apk update && \
     apk add --no-cache \
         wget \
+        openssl \
         iproute2 \
         vim \
         git \
