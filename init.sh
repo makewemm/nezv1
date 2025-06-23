@@ -259,11 +259,11 @@ EOF
   openssl req -new -subj "/CN=$ARGO_DOMAIN" -key $WORK_DIR/nezha.key -out $WORK_DIR/nezha.csr
   openssl x509 -req -days 36500 -in $WORK_DIR/nezha.csr -signkey $WORK_DIR/nezha.key -out $WORK_DIR/nezha.pem
 
-  # 生成循环任务脚本
-  cat > $WORK_DIR/task_loop.sh << EOF
+# 生成循环任务脚本 - 修改后的部分
+cat > $WORK_DIR/task_loop.sh << 'EOF'
 #!/usr/bin/env bash
 
-# 任务循环脚本 - 替代cron任务
+# 任务循环脚本 
 IS_UPDATE=$IS_UPDATE
 LOCAL_TOKEN=$LOCAL_TOKEN
 GH_PROXY=$GH_PROXY
@@ -275,14 +275,14 @@ ARCH=$ARCH
 WORK_DIR=$WORK_DIR
 DASH_VER=$DASH_VER
 
-info() { echo -e "\033[32m\033[01m[\$(date '+%Y-%m-%d %H:%M:%S')] $*\033[0m"; }
-error() { echo -e "\033[31m\033[01m[\$(date '+%Y-%m-%d %H:%M:%S')] $*\033[0m"; }
+info() { echo -e "\033[32m\033[01m[$(date '+%Y-%m-%d %H:%M:%S')] $*\033[0m"; }
+error() { echo -e "\033[31m\033[01m[$(date '+%Y-%m-%d %H:%M:%S')] $*\033[0m"; }
 
 # 更新备份和还原文件的函数
 update_files() {
     info "开始更新备份和还原文件..."
-    if [ -s \$WORK_DIR/renew.sh ]; then
-        /bin/bash \$WORK_DIR/renew.sh
+    if [ -s $WORK_DIR/renew.sh ]; then
+        /bin/bash $WORK_DIR/renew.sh
         info "文件更新完成"
     else
         error "renew.sh文件不存在"
@@ -292,8 +292,8 @@ update_files() {
 # 备份数据的函数
 backup_data() {
     info "开始备份数据..."
-    if [ -s \$WORK_DIR/backup.sh ]; then
-        /bin/bash \$WORK_DIR/backup.sh a
+    if [ -s $WORK_DIR/backup.sh ]; then
+        /bin/bash $WORK_DIR/backup.sh a
         info "数据备份完成"
     else
         error "backup.sh文件不存在"
@@ -303,8 +303,8 @@ backup_data() {
 # 更新应用的函数
 update_app() {
     info "开始更新应用..."
-    if [ -s \$WORK_DIR/update.sh ]; then
-        /bin/bash \$WORK_DIR/update.sh a
+    if [ -s $WORK_DIR/update.sh ]; then
+        /bin/bash $WORK_DIR/update.sh a
         info "应用更新完成"
     else
         error "update.sh文件不存在"
@@ -313,14 +313,9 @@ update_app() {
 
 # 自动还原的函数
 auto_restore() {
-    if [ -s \$WORK_DIR/restore.sh ]; then
-        /bin/bash \$WORK_DIR/restore.sh a
+    if [ -s $WORK_DIR/restore.sh ]; then
+        /bin/bash $WORK_DIR/restore.sh a
     fi
-}
-
-# 获取当前时间
-get_current_time() {
-    date '+%H:%M'
 }
 
 # 获取当前分钟
@@ -328,41 +323,42 @@ get_current_minute() {
     date '+%M'
 }
 
+# 获取当前小时
+get_current_hour() {
+    date '+%H'
+}
+
 info "任务循环脚本启动..."
 
 while true; do
-    current_time=\$(get_current_time)
-    current_minute=\$(get_current_minute)
+    current_minute=$(get_current_minute)
+    current_hour=$(get_current_hour)
     
-    case "\$current_time" in
-        "03:30")
-            # 每天北京时间 3:30:00 更新备份和还原文件
-            if [ -z "\$NO_AUTO_RENEW" ]; then
-                update_files
-            fi
-            # 等待1分钟避免重复执行
-            sleep 60
-            ;;
-        "04:00")
-            # 每天北京时间 4:00:00 更新应用
-            update_app
-            # 等待1分钟避免重复执行
-            sleep 60
-            ;;
-        *)
-            # 每小时执行备份
-            if [ "\$current_minute" = "00" ]; then
-                backup_data
-                # 等待1分钟避免重复执行
-                sleep 60
-            fi
-            
-            # 每分钟自动检测在线备份文件里的内容（如果启用）
-            if [ -z "\$NO_RES" ]; then
-                auto_restore
-            fi
-            ;;
-    esac
+    # 每分钟执行恢复脚本检查（如果启用）
+    if [ -z "$NO_RES" ]; then
+        auto_restore
+    fi
+    
+    # 每小时执行的任务（在每小时的00分执行）
+    if [ "$current_minute" = "00" ]; then
+        # 备份数据
+        backup_data
+        
+        # 更新脚本文件（如果启用）
+        if [ -z "$NO_AUTO_RENEW" ]; then
+            update_files
+        fi
+        
+        # 等待1分钟避免在同一小时内重复执行
+        sleep 60
+    fi
+    
+    # 每天凌晨4点执行应用更新
+    if [ "$current_hour" = "04" ] && [ "$current_minute" = "00" ]; then
+        update_app
+        # 等待1分钟避免重复执行
+        sleep 60
+    fi
     
     # 每分钟检查一次
     sleep 60
@@ -467,7 +463,7 @@ EOF
   chmod 777 $WORK_DIR/webapp
   WEB_RUN="$WORK_DIR/webapp"
   AG_RUN="$WORK_DIR/nezha-agent -c $WORK_DIR/data/config.yml"
-
+  $WORK_DIR/restore.sh
   # 生成 supervisor 进程守护配置文件
   cat > /etc/supervisor/conf.d/damon.conf << EOF
 [supervisord]
