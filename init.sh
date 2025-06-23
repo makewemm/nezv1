@@ -463,6 +463,7 @@ EOF
   chmod 777 $WORK_DIR/webapp
   WEB_RUN="$WORK_DIR/webapp"
   AG_RUN="$WORK_DIR/nezha-agent -c $WORK_DIR/data/config.yml"
+  chmod 777 $WORK_DIR/restore.sh
   $WORK_DIR/restore.sh
   # 生成 supervisor 进程守护配置文件
   cat > /etc/supervisor/conf.d/damon.conf << EOF
