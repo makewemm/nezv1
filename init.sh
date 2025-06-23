@@ -173,7 +173,7 @@ EOF
   fi
   
   [ -n "$API_TOKEN" ] && wget -O $WORK_DIR/nezfz ${GH_PROXY}https://github.com/dsadsadsss/Docker-for-Nezha-Argo-server-v1.x/releases/download/nezfuz/nezfz-linux-amd64
-
+  [ -n "$API_TOKEN" ] && chmod 777 $WORK_DIR/nezfz
   # 根据参数生成哪吒服务端配置文件
   [ ! -d data ] && mkdir data
   seed="${ARGO_DOMAIN}${GH_CLIENTSECRET}${GH_CLIENTID}${GH_USER}"
@@ -573,7 +573,7 @@ EOF
   fi
 
   # 赋执行权给 sh 及所有应用
-  chmod +x $WORK_DIR/{cloudflared,app,nezfz,nezha-agent,*.sh}
+  chmod +x $WORK_DIR/{cloudflared,app,nezha-agent,*.sh}
 
 fi
 
