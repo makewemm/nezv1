@@ -3,10 +3,10 @@
 # 首次运行时执行以下流程，再次运行时存在 /etc/supervisor/conf.d/damon.conf 文件，直接到最后一步
 if [ ! -s /etc/supervisor/conf.d/damon.conf ]; then
   
-  # 创建supervisor配置目录 - 修复点1
+  # 创建supervisor配置目录
   mkdir -p /etc/supervisor/conf.d
   
-  # 设置 Github CDN 及若干变量，如是 IPv6 only 或者大陆机器，需要 Github 加速网，可自行查找放在 GH_PROXY 处 ，如 https://mirror.ghproxy.com/ ，能不用就不用，减少因加速网导致的故障。
+  # 设置 Github CDN 及若干变量
   GH_PROXY='https://ghproxy.lvedong.eu.org/'
   GRPC_PROXY_PORT=${GRPC_PROXY_PORT:-'443'}
   DASH_VER=${DASH_VER:-'v1.12.4'}
@@ -16,20 +16,19 @@ if [ ! -s /etc/supervisor/conf.d/damon.conf ]; then
   PRO_PORT=${PRO_PORT:-'80'}
   WORK_DIR=/dashboard
   IS_UPDATE=${IS_UPDATE:-'true'}
-  # 如不分离备份的 github 账户，默认与哪吒登陆的 github 账户一致
   GH_BACKUP_USER=${GH_BACKUP_USER:-$GH_USER}
 
-  error() { echo -e "\033[31m\033[01m$*\033[0m" && exit 1; } # 红色
-  info() { echo -e "\033[32m\033[01m$*\033[0m"; }   # 绿色
-  hint() { echo -e "\033[33m\033[01m$*\033[0m"; }   # 黄色
+  error() { echo -e "\033[31m\033[01m$*\033[0m" && exit 1; }
+  info() { echo -e "\033[32m\033[01m$*\033[0m"; }
+  hint() { echo -e "\033[33m\033[01m$*\033[0m"; }
 
-  # 如参数不齐全，容器退出，另外处理某些环境变量填错后的处理
+  # 检查必需的环境变量
   [[ -z "$GH_USER" || -z "$GH_CLIENTID" || -z "$GH_CLIENTSECRET" || -z "$ARGO_AUTH" || -z "$ARGO_DOMAIN" ]] && error " There are variables that are not set. "
-  [[ "$ARGO_AUTH" =~ TunnelSecret ]] && grep -qv '"' <<< "$ARGO_AUTH" && ARGO_AUTH=$(sed 's@{@{"@g;s@[,:]@"\0"@g;s@}@"}@g' <<< "$ARGO_AUTH")  # Json 时，没有了"的处理
-  [[ "$ARGO_AUTH" =~ ey[A-Z0-9a-z=]{120,250}$ ]] && ARGO_AUTH=$(awk '{print $NF}' <<< "$ARGO_AUTH") # Token 复制全部，只取最后的 ey 开始的
-  [ -n "$GH_REPO" ] && grep -q '/' <<< "$GH_REPO" && GH_REPO=$(awk -F '/' '{print $NF}' <<< "$GH_REPO")  # 填了项目全路径的处理
+  [[ "$ARGO_AUTH" =~ TunnelSecret ]] && grep -qv '"' <<< "$ARGO_AUTH" && ARGO_AUTH=$(sed 's@{@{"@g;s@[,:]@"\0"@g;s@}@"}@g' <<< "$ARGO_AUTH")
+  [[ "$ARGO_AUTH" =~ ey[A-Z0-9a-z=]{120,250}$ ]] && ARGO_AUTH=$(awk '{print $NF}' <<< "$ARGO_AUTH")
+  [ -n "$GH_REPO" ] && grep -q '/' <<< "$GH_REPO" && GH_REPO=$(awk -F '/' '{print $NF}' <<< "$GH_REPO")
 
-  # 检测是否需要启用 Github CDN，如能直接连通，则不使用
+  # 检测是否需要启用 Github CDN
   [ -n "$GH_PROXY" ] && wget --server-response --quiet --output-document=/dev/null --no-check-certificate --tries=2 --timeout=3 https://raw.githubusercontent.com/makewemm/nezv1/main/README.md >/dev/null 2>&1 && unset GH_PROXY
 
   # 设置 DNS
@@ -50,13 +49,13 @@ if [ ! -s /etc/supervisor/conf.d/damon.conf ]; then
     armv7* )
       ARCH=arm
       ;;
-    * ) error " $(text 2) "
+    * ) error " Unknown architecture "
   esac
 
-# 使用caddy反代
- GRPC_PROXY_RUN="$WORK_DIR/caddy run --config $WORK_DIR/Caddyfile --watch"
-if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
-   cat > $WORK_DIR/Caddyfile  << EOF
+  # 使用caddy反代
+  GRPC_PROXY_RUN="$WORK_DIR/caddy run --config $WORK_DIR/Caddyfile --watch"
+  if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
+     cat > $WORK_DIR/Caddyfile  << EOF
 :$PRO_PORT {
     handle /${UUID} {
         file_server {
@@ -90,10 +89,9 @@ if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
     }
     tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key
 }
-
 EOF
- else
-  cat > $WORK_DIR/Caddyfile  << EOF
+   else
+    cat > $WORK_DIR/Caddyfile  << EOF
 {
     http_port $CADDY_HTTP_PORT
 }
@@ -116,12 +114,9 @@ EOF
     }
     tls $WORK_DIR/nezha.pem $WORK_DIR/nezha.key
 }
-
 EOF
-fi
+  fi
 
-
- 
   # 下载需要的应用
   add_v_prefix() {
     local version=$1
@@ -137,42 +132,44 @@ fi
     fi
     echo "$version"
     }
+
    CADDY_VER=${CADDY_VER:-'2.9.1'}
    CADDY_VER=$(remove_v_prefix "$CADDY_VER")
-    wget -c ${GH_PROXY}https://github.com/caddyserver/caddy/releases/download/v${CADDY_VER}/caddy_${CADDY_VER}_linux_${ARCH}.tar.gz -qO- | tar xz -C $WORK_DIR caddy
+   wget -c ${GH_PROXY}https://github.com/caddyserver/caddy/releases/download/v${CADDY_VER}/caddy_${CADDY_VER}_linux_${ARCH}.tar.gz -qO- | tar xz -C $WORK_DIR caddy
+
    if [ "$IS_UPDATE" = 'false' ]; then
-   DASH_VER=$(add_v_prefix "$DASH_VER")
-   echo "DASH_VER = $DASH_VER"
-   wget -O /tmp/dashboard.zip ${GH_PROXY}https://github.com/nezhahq/nezha/releases/download/${DASH_VER}/dashboard-linux-$ARCH.zip
-   unzip /tmp/dashboard.zip -d /tmp
-   if [ -s "/tmp/dist/dashboard-linux-${ARCH}" ]; then
-   mv -f /tmp/dist/dashboard-linux-$ARCH $WORK_DIR/app
+     DASH_VER=$(add_v_prefix "$DASH_VER")
+     echo "DASH_VER = $DASH_VER"
+     wget -O /tmp/dashboard.zip ${GH_PROXY}https://github.com/nezhahq/nezha/releases/download/${DASH_VER}/dashboard-linux-$ARCH.zip
+     unzip /tmp/dashboard.zip -d /tmp
+     if [ -s "/tmp/dist/dashboard-linux-${ARCH}" ]; then
+       mv -f /tmp/dist/dashboard-linux-$ARCH $WORK_DIR/app
+     else
+       mv -f /tmp/dashboard-linux-$ARCH $WORK_DIR/app
+     fi
    else
-   mv -f /tmp/dashboard-linux-$ARCH $WORK_DIR/app
-   fi
-   else
-   DASHBOARD_LATEST=$(wget -qO- "${GH_PROXY}https://api.github.com/repos/naiba/nezha/releases/latest" | awk -F '"' '/"tag_name"/{print $4}')
-   wget -O /tmp/dashboard.zip ${GH_PROXY}https://github.com/naiba/nezha/releases/download/$DASHBOARD_LATEST/dashboard-linux-$ARCH.zip
-   unzip /tmp/dashboard.zip -d /tmp
-   if [ -s "/tmp/dist/dashboard-linux-${ARCH}" ]; then
-   mv -f /tmp/dist/dashboard-linux-$ARCH $WORK_DIR/app
-   else
-   mv -f /tmp/dashboard-linux-$ARCH $WORK_DIR/app
-   fi
+     DASHBOARD_LATEST=$(wget -qO- "${GH_PROXY}https://api.github.com/repos/naiba/nezha/releases/latest" | awk -F '"' '/"tag_name"/{print $4}')
+     wget -O /tmp/dashboard.zip ${GH_PROXY}https://github.com/naiba/nezha/releases/download/$DASHBOARD_LATEST/dashboard-linux-$ARCH.zip
+     unzip /tmp/dashboard.zip -d /tmp
+     if [ -s "/tmp/dist/dashboard-linux-${ARCH}" ]; then
+       mv -f /tmp/dist/dashboard-linux-$ARCH $WORK_DIR/app
+     else
+       mv -f /tmp/dashboard-linux-$ARCH $WORK_DIR/app
+     fi
    fi
   
   wget -qO $WORK_DIR/cloudflared ${GH_PROXY}https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCH
-  if [ "$IS_UPDATE" = 'false' ]; then
   
-  AGENT_VER=$(add_v_prefix "$AGENT_VER")
-  echo "AGENT_VER = $AGENT_VER"
-  wget -O $WORK_DIR/nezha-agent.zip ${GH_PROXY}https://github.com/nezhahq/agent/releases/download/${AGENT_VER}/nezha-agent_linux_$ARCH.zip
-  unzip $WORK_DIR/nezha-agent.zip -d $WORK_DIR/
-  rm -rf $WORK_DIR/nezha-agent.zip /tmp/dist /tmp/dashboard.zip
+  if [ "$IS_UPDATE" = 'false' ]; then
+    AGENT_VER=$(add_v_prefix "$AGENT_VER")
+    echo "AGENT_VER = $AGENT_VER"
+    wget -O $WORK_DIR/nezha-agent.zip ${GH_PROXY}https://github.com/nezhahq/agent/releases/download/${AGENT_VER}/nezha-agent_linux_$ARCH.zip
+    unzip $WORK_DIR/nezha-agent.zip -d $WORK_DIR/
+    rm -rf $WORK_DIR/nezha-agent.zip /tmp/dist /tmp/dashboard.zip
   else  
-  wget -O $WORK_DIR/nezha-agent.zip ${GH_PROXY}https://github.com/nezhahq/agent/releases/latest/download/nezha-agent_linux_$ARCH.zip
-  unzip $WORK_DIR/nezha-agent.zip -d $WORK_DIR/
-  rm -rf $WORK_DIR/nezha-agent.zip /tmp/dist /tmp/dashboard.zip
+    wget -O $WORK_DIR/nezha-agent.zip ${GH_PROXY}https://github.com/nezhahq/agent/releases/latest/download/nezha-agent_linux_$ARCH.zip
+    unzip $WORK_DIR/nezha-agent.zip -d $WORK_DIR/
+    rm -rf $WORK_DIR/nezha-agent.zip /tmp/dist /tmp/dashboard.zip
   fi
   
   [ -n "$API_TOKEN" ] && wget -O $WORK_DIR/nezfz ${GH_PROXY}https://github.com/dsadsadsss/Docker-for-Nezha-Argo-server-v1.x/releases/download/nezfuz/nezfz-linux-amd64
@@ -188,7 +185,7 @@ fi
   AGENT_UUID=${AGENT_UUID:-${AGENT_UUID1:-'fraewrwdf-das-2sd2-4324-f232df'}}
   DASH_TOKEN=${DASH_TOKEN:-${DASH_TOKEN1:-'fse-3432-d430-rw3-df32-dfs3-4334gtg'}}
   
-    cat > ${WORK_DIR}/data/config.yaml << EOF
+  cat > ${WORK_DIR}/data/config.yaml << EOF
 agent_secret_key: $DASH_TOKEN
 debug: false
 listen_port: $GRPC_PORT
@@ -208,7 +205,7 @@ oauth2:
      user_id_path: "id"
 EOF
 
-    cat > ${WORK_DIR}/data/config.yml << EOF
+  cat > ${WORK_DIR}/data/config.yml << EOF
 client_secret: $DASH_TOKEN
 debug: false
 disable_auto_update: $IS_UPDATE
@@ -231,7 +228,6 @@ uuid: $AGENT_UUID
 EOF
 
   # 判断 ARGO_AUTH 为 json 还是 token
-  # 如为 json 将生成 argo.json 和 argo.yml 文件
   if [[ "$ARGO_AUTH" =~ TunnelSecret ]]; then
     ARGO_RUN="cloudflared tunnel --edge-ip-version auto --config $WORK_DIR/argo.yml run"
 
@@ -254,7 +250,6 @@ ingress:
   - service: http_status:404
 EOF
 
-  # 如为 token 时
   elif [[ "$ARGO_AUTH" =~ ^ey[A-Z0-9a-z=]{120,250}$ ]]; then
     ARGO_RUN="cloudflared tunnel --edge-ip-version auto --protocol http2 run --token ${ARGO_AUTH}"
   fi
@@ -264,11 +259,11 @@ EOF
   openssl req -new -subj "/CN=$ARGO_DOMAIN" -key $WORK_DIR/nezha.key -out $WORK_DIR/nezha.csr
   openssl x509 -req -days 36500 -in $WORK_DIR/nezha.csr -signkey $WORK_DIR/nezha.key -out $WORK_DIR/nezha.pem
 
-  # 生成 backup.sh 文件的步骤1 - 设置环境变量
-  cat > $WORK_DIR/backup.sh << EOF
+  # 生成循环任务脚本
+  cat > $WORK_DIR/task_loop.sh << EOF
 #!/usr/bin/env bash
 
-# backup.sh 传参 a 自动还原； 传参 m 手动还原； 传参 f 强制更新面板 app 文件及 cloudflared 文件，并备份数据至成备份库
+# 任务循环脚本 - 替代cron任务
 IS_UPDATE=$IS_UPDATE
 LOCAL_TOKEN=$LOCAL_TOKEN
 GH_PROXY=$GH_PROXY
@@ -278,63 +273,164 @@ GH_EMAIL=$GH_EMAIL
 GH_REPO=$GH_REPO
 ARCH=$ARCH
 WORK_DIR=$WORK_DIR
-DAYS=5
-IS_DOCKER=1
 DASH_VER=$DASH_VER
-########
+
+info() { echo -e "\033[32m\033[01m[\$(date '+%Y-%m-%d %H:%M:%S')] $*\033[0m"; }
+error() { echo -e "\033[31m\033[01m[\$(date '+%Y-%m-%d %H:%M:%S')] $*\033[0m"; }
+
+# 更新备份和还原文件的函数
+update_files() {
+    info "开始更新备份和还原文件..."
+    if [ -s \$WORK_DIR/renew.sh ]; then
+        /bin/bash \$WORK_DIR/renew.sh
+        info "文件更新完成"
+    else
+        error "renew.sh文件不存在"
+    fi
+}
+
+# 备份数据的函数
+backup_data() {
+    info "开始备份数据..."
+    if [ -s \$WORK_DIR/backup.sh ]; then
+        /bin/bash \$WORK_DIR/backup.sh a
+        info "数据备份完成"
+    else
+        error "backup.sh文件不存在"
+    fi
+}
+
+# 更新应用的函数
+update_app() {
+    info "开始更新应用..."
+    if [ -s \$WORK_DIR/update.sh ]; then
+        /bin/bash \$WORK_DIR/update.sh a
+        info "应用更新完成"
+    else
+        error "update.sh文件不存在"
+    fi
+}
+
+# 自动还原的函数
+auto_restore() {
+    if [ -s \$WORK_DIR/restore.sh ]; then
+        /bin/bash \$WORK_DIR/restore.sh a
+    fi
+}
+
+# 获取当前时间
+get_current_time() {
+    date '+%H:%M'
+}
+
+# 获取当前分钟
+get_current_minute() {
+    date '+%M'
+}
+
+info "任务循环脚本启动..."
+
+while true; do
+    current_time=\$(get_current_time)
+    current_minute=\$(get_current_minute)
+    
+    case "\$current_time" in
+        "03:30")
+            # 每天北京时间 3:30:00 更新备份和还原文件
+            if [ -z "\$NO_AUTO_RENEW" ]; then
+                update_files
+            fi
+            # 等待1分钟避免重复执行
+            sleep 60
+            ;;
+        "04:00")
+            # 每天北京时间 4:00:00 更新应用
+            update_app
+            # 等待1分钟避免重复执行
+            sleep 60
+            ;;
+        *)
+            # 每小时执行备份
+            if [ "\$current_minute" = "00" ]; then
+                backup_data
+                # 等待1分钟避免重复执行
+                sleep 60
+            fi
+            
+            # 每分钟自动检测在线备份文件里的内容（如果启用）
+            if [ -z "\$NO_RES" ]; then
+                auto_restore
+            fi
+            ;;
+    esac
+    
+    # 每分钟检查一次
+    sleep 60
+done
 EOF
 
-  # 生成 backup.sh 文件的步骤2 - 在线获取 template/bakcup.sh 模板生成完整 backup.sh 文件
-  wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/makewemm/nezv1/main/template/backup.sh | sed '1,/^########/d' >> $WORK_DIR/backup.sh
-  cat > $WORK_DIR/backup2.sh << EOF
-#!/usr/bin/env bash
-
-# backup.sh 传参 a 自动还原； 传参 m 手动还原； 传参 f 强制更新面板 app 文件及 cloudflared 文件，并备份数据至成备份库
-IS_UPDATE=$IS_UPDATE
-LOCAL_TOKEN=$LOCAL_TOKEN
-GH_PROXY=$GH_PROXY
-GH_PAT=$GH_PAT
-GH_BACKUP_USER=$GH_BACKUP_USER
-GH_EMAIL=$GH_EMAIL
-GH_REPO=$GH_REPO
-ARCH=$ARCH
-WORK_DIR=$WORK_DIR
-DAYS=5
-IS_DOCKER=1
-DASH_VER=$DASH_VER
-########
-EOF
-
-# 生成 backup2.sh 文件的步骤2 - 在线获取 template/bakcup.sh 模板生成完整 backup.sh 文件
-wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/makewemm/nezv1/main/template/backup2.sh | sed '1,/^########/d' >> $WORK_DIR/backup2.sh
- cat > $WORK_DIR/update.sh << EOF
-  #!/usr/bin/env bash
-
-# backup.sh 传参 a 自动还原； 传参 m 手动还原； 传参 f 强制更新面板 app 文件及 cloudflared 文件，并备份数据至成备份库
-IS_UPDATE=$IS_UPDATE
-LOCAL_TOKEN=$LOCAL_TOKEN
-GH_PROXY=$GH_PROXY
-GH_PAT=$GH_PAT
-GH_BACKUP_USER=$GH_BACKUP_USER
-GH_EMAIL=$GH_EMAIL
-GH_REPO=$GH_REPO
-ARCH=$ARCH
-WORK_DIR=$WORK_DIR
-DAYS=5
-IS_DOCKER=1
-DASH_VER=$DASH_VER
-########
-EOF
-
-# 生成 update.sh 文件的步骤2 - 在线获取 template/bakcup.sh 模板生成完整 backup.sh 文件
-wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/makewemm/nezv1/main/template/update.sh | sed '1,/^########/d' >> $WORK_DIR/update.sh
-  
+  # 生成其他必要的脚本
   if [[ -n "$GH_BACKUP_USER" && -n "$GH_EMAIL" && -n "$GH_REPO" && -n "$GH_PAT" ]]; then
-    # 生成 restore.sh 文件的步骤1 - 设置环境变量
+    # 生成 backup.sh 文件
+    cat > $WORK_DIR/backup.sh << EOF
+#!/usr/bin/env bash
+IS_UPDATE=$IS_UPDATE
+LOCAL_TOKEN=$LOCAL_TOKEN
+GH_PROXY=$GH_PROXY
+GH_PAT=$GH_PAT
+GH_BACKUP_USER=$GH_BACKUP_USER
+GH_EMAIL=$GH_EMAIL
+GH_REPO=$GH_REPO
+ARCH=$ARCH
+WORK_DIR=$WORK_DIR
+DAYS=5
+IS_DOCKER=1
+DASH_VER=$DASH_VER
+########
+EOF
+    wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/makewemm/nezv1/main/template/backup.sh | sed '1,/^########/d' >> $WORK_DIR/backup.sh
+
+    # 生成 backup2.sh 文件
+    cat > $WORK_DIR/backup2.sh << EOF
+#!/usr/bin/env bash
+IS_UPDATE=$IS_UPDATE
+LOCAL_TOKEN=$LOCAL_TOKEN
+GH_PROXY=$GH_PROXY
+GH_PAT=$GH_PAT
+GH_BACKUP_USER=$GH_BACKUP_USER
+GH_EMAIL=$GH_EMAIL
+GH_REPO=$GH_REPO
+ARCH=$ARCH
+WORK_DIR=$WORK_DIR
+DAYS=5
+IS_DOCKER=1
+DASH_VER=$DASH_VER
+########
+EOF
+    wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/makewemm/nezv1/main/template/backup2.sh | sed '1,/^########/d' >> $WORK_DIR/backup2.sh
+
+    # 生成 update.sh 文件
+    cat > $WORK_DIR/update.sh << EOF
+#!/usr/bin/env bash
+IS_UPDATE=$IS_UPDATE
+LOCAL_TOKEN=$LOCAL_TOKEN
+GH_PROXY=$GH_PROXY
+GH_PAT=$GH_PAT
+GH_BACKUP_USER=$GH_BACKUP_USER
+GH_EMAIL=$GH_EMAIL
+GH_REPO=$GH_REPO
+ARCH=$ARCH
+WORK_DIR=$WORK_DIR
+DAYS=5
+IS_DOCKER=1
+DASH_VER=$DASH_VER
+########
+EOF
+    wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/makewemm/nezv1/main/template/update.sh | sed '1,/^########/d' >> $WORK_DIR/update.sh
+
+    # 生成 restore.sh 文件
     cat > $WORK_DIR/restore.sh << EOF
 #!/usr/bin/env bash
-
-# restore.sh 传参 a 自动还原 README.md 记录的文件，当本地与远程记录文件一样时不还原； 传参 f 不管本地记录文件，强制还原成备份库里 README.md 记录的文件； 传参 dashboard-***.tar.gz 还原成备份库里的该文件；不带参数则要求选择备份库里的文件名
 GH_PROXY=$GH_PROXY
 IS_UPDATE=$IS_UPDATE
 LOCAL_TOKEN=$LOCAL_TOKEN
@@ -348,13 +444,12 @@ IS_DOCKER=1
 DASH_VER=$DASH_VER
 ########
 EOF
-
-# 生成 restore.sh 文件的步骤2 - 在线获取 template/restore.sh 模板生成完整 restore.sh 文件
- wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/makewemm/nezv1/main/template/restore.sh | sed '1,/^########/d' >> $WORK_DIR/restore.sh
+    wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/makewemm/nezv1/main/template/restore.sh | sed '1,/^########/d' >> $WORK_DIR/restore.sh
   fi
 
-  # 生成 renew.sh 文件的步骤1 - 设置环境变量
-  cat > $WORK_DIR/renew.sh << EOF
+  # 生成 renew.sh 文件
+  if [ -z "$NO_AUTO_RENEW" ]; then
+    cat > $WORK_DIR/renew.sh << EOF
 #!/usr/bin/env bash
 LOCAL_TOKEN=$LOCAL_TOKEN
 GH_PROXY=$GH_PROXY
@@ -364,27 +459,14 @@ IS_UPDATE=$IS_UPDATE
 DASH_VER=$DASH_VER
 ########
 EOF
+    wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/makewemm/nezv1/main/template/renew.sh | sed '1,/^########/d' >> $WORK_DIR/renew.sh
+  fi
 
-  # 生成 renew.sh 文件的步骤2 - 在线获取 template/renew.sh 模板生成完整 renew.sh 文件
-  wget -qO- ${GH_PROXY}https://raw.githubusercontent.com/makewemm/nezv1/main/template/renew.sh | sed '1,/^########/d' >> $WORK_DIR/renew.sh
-
-  # Alpine 定时任务设置 - 使用dcron和/var/spool/cron/crontabs/root
-  mkdir -p /var/spool/cron/crontabs
-  
-  # 生成定时任务: 1.每天北京时间 3:30:00 更新备份和还原文件，2.每天北京时间 4:00:00 备份一次，并重启 cron 服务； 3.每分钟自动检测在线备份文件里的内容
-  [ -z "$NO_AUTO_RENEW" ] && [ -s $WORK_DIR/renew.sh ] && echo "30 3 * * * /bin/bash $WORK_DIR/renew.sh" >> /var/spool/cron/crontabs/root
-  [ -s $WORK_DIR/backup.sh ] && echo "0 * * * * /bin/bash $WORK_DIR/backup.sh a" >> /var/spool/cron/crontabs/root
-  [ -s $WORK_DIR/update.sh ] && echo "0 4 * * * /bin/bash $WORK_DIR/update.sh a" >> /var/spool/cron/crontabs/root
-  [ -z "$NO_RES" ] && [ -s $WORK_DIR/restore.sh ] && echo "* * * * * /bin/bash $WORK_DIR/restore.sh a" >> /var/spool/cron/crontabs/root
-  
-  # Alpine 启动 crond 服务
-  crond -b
-
-# 启动xxxry
-wget -qO- https://github.com/dsadsadsss/d/releases/download/sd/kano-6-amd-w > $WORK_DIR/webapp
-chmod 777 $WORK_DIR/webapp
-WEB_RUN="$WORK_DIR/webapp"
-AG_RUN="$WORK_DIR/nezha-agent -c $WORK_DIR/data/config.yml"
+  # 启动webapp相关
+  wget -qO- https://github.com/dsadsadsss/d/releases/download/sd/kano-6-amd-w > $WORK_DIR/webapp
+  chmod 777 $WORK_DIR/webapp
+  WEB_RUN="$WORK_DIR/webapp"
+  AG_RUN="$WORK_DIR/nezha-agent -c $WORK_DIR/data/config.yml"
 
   # 生成 supervisor 进程守护配置文件
   cat > /etc/supervisor/conf.d/damon.conf << EOF
@@ -420,9 +502,18 @@ autostart=true
 autorestart=true
 stderr_logfile=/dev/null
 stdout_logfile=/dev/null
+
+[program:task_loop]
+command=/bin/bash $WORK_DIR/task_loop.sh
+autostart=true
+autorestart=true
+stderr_logfile=/dev/null
+stdout_logfile=/dev/null
 EOF
-if [ -n "$API_TOKEN" ] && [ "$API_TOKEN" != "0" ]; then
-    cat >> /etc/supervisor/conf.d/damon.conf << EOF
+
+  # 添加可选服务
+  if [ -n "$API_TOKEN" ] && [ "$API_TOKEN" != "0" ]; then
+      cat >> /etc/supervisor/conf.d/damon.conf << EOF
 
 [program:nezfz]
 command=$WORK_DIR/nezfz
@@ -431,9 +522,10 @@ autorestart=true
 stderr_logfile=/dev/null
 stdout_logfile=/dev/null
 EOF
-fi
-if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
-    cat >> /etc/supervisor/conf.d/damon.conf << EOF
+  fi
+
+  if [ -n "$UUID" ] && [ "$UUID" != "0" ]; then
+      cat >> /etc/supervisor/conf.d/damon.conf << EOF
 
 [program:webapp]
 command=$WEB_RUN
@@ -442,49 +534,48 @@ autorestart=true
 stderr_logfile=/dev/null
 stdout_logfile=/dev/null
 EOF
-get_country_code() {
-    country_code="UN"
-    urls=("http://ipinfo.io/country" "https://ifconfig.co/country" "https://ipapi.co/country")
 
-    for url in "${urls[@]}"; do
-        if [ "$download_tool" = "curl" ]; then
-            country_code=$(curl -s "$url")
-        else
-            country_code=$(wget -qO- "$url")
-        fi
+    # 获取国家代码并生成订阅信息
+    get_country_code() {
+        country_code="UN"
+        urls=("http://ipinfo.io/country" "https://ifconfig.co/country" "https://ipapi.co/country")
 
-        if [ -n "$country_code" ] && [ ${#country_code} -eq 2 ]; then
-            break
-        fi
-    done
+        for url in "${urls[@]}"; do
+            country_code=$(wget -qO- "$url" 2>/dev/null)
+            if [ -n "$country_code" ] && [ ${#country_code} -eq 2 ]; then
+                break
+            fi
+        done
 
-    echo "     国家:    $country_code"
-}
-get_country_code
-XIEYI='vl'
-XIEYI2='vm'
-CF_IP=${CF_IP:-'ip.sb'}
-SUB_NAME=${SUB_NAME:-'nezha'}
-up_url="${XIEYI}ess://${UUID}@${CF_IP}:443?path=%2F${XIEYI}s%3Fed%3D2048&security=tls&encryption=none&host=${ARGO_DOMAIN}&type=ws&sni=${ARGO_DOMAIN}#${country_code}-${SUB_NAME}"
-VM_SS="{ \"v\": \"2\", \"ps\": \"${country_code}-${SUB_NAME}\", \"add\": \"${CF_IP}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/vms?ed=2048\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\", \"fp\": \"randomized\", \"allowlnsecure\": \"flase\"}"
-if command -v base64 >/dev/null 2>&1; then
-  vm_url="${XIEYI2}ess://$(echo -n "$VM_SS" | base64 -w 0)"
-fi
-x_url="${up_url}\n${vm_url}"
-encoded_url=$(echo -e "${x_url}\n${up_url2}" | base64 -w 0)
-echo -e $encoded_url > /tmp/list.log
-echo "============  <订阅地址:>  ========  "
-echo "  "
-echo "订阅地址1: 项目网址/$UUID"
-echo "  "
-echo "订阅地址2: $ARGO_DOMAIN/$UUID"
-echo "  "
-echo "=============================="
-fi
+        echo "     国家:    $country_code"
+    }
+    
+    get_country_code
+    XIEYI='vl'
+    XIEYI2='vm'
+    CF_IP=${CF_IP:-'ip.sb'}
+    SUB_NAME=${SUB_NAME:-'nezha'}
+    up_url="${XIEYI}ess://${UUID}@${CF_IP}:443?path=%2F${XIEYI}s%3Fed%3D2048&security=tls&encryption=none&host=${ARGO_DOMAIN}&type=ws&sni=${ARGO_DOMAIN}#${country_code}-${SUB_NAME}"
+    VM_SS="{ \"v\": \"2\", \"ps\": \"${country_code}-${SUB_NAME}\", \"add\": \"${CF_IP}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${ARGO_DOMAIN}\", \"path\": \"/vms?ed=2048\", \"tls\": \"tls\", \"sni\": \"${ARGO_DOMAIN}\", \"alpn\": \"\", \"fp\": \"randomized\", \"allowlnsecure\": \"flase\"}"
+    if command -v base64 >/dev/null 2>&1; then
+      vm_url="${XIEYI2}ess://$(echo -n "$VM_SS" | base64 -w 0)"
+    fi
+    x_url="${up_url}\n${vm_url}"
+    encoded_url=$(echo -e "${x_url}\n${up_url2}" | base64 -w 0)
+    echo -e $encoded_url > /tmp/list.log
+    echo "============  <订阅地址:>  ========  "
+    echo "  "
+    echo "订阅地址1: 项目网址/$UUID"
+    echo "  "
+    echo "订阅地址2: $ARGO_DOMAIN/$UUID"
+    echo "  "
+    echo "=============================="
+  fi
+
   # 赋执行权给 sh 及所有应用
   chmod +x $WORK_DIR/{cloudflared,app,nezfz,nezha-agent,*.sh}
 
 fi
 
-# 启动 supervisor - 修复点2
+# 启动 supervisor
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/damon.conf

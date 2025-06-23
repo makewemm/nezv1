@@ -2,14 +2,14 @@ FROM alpine:latest
 
 WORKDIR /dashboard
 COPY entrypoint.sh ./
-# 安装必要的软件包 - Alpine使用apk包管理器
+
+# 安装必要的软件包 - 去掉不需要的dcron依赖
 RUN apk update && \
     apk add --no-cache \
         wget \
         iproute2 \
         vim \
         git \
-        dcron \
         unzip \
         supervisor \
         nginx \
